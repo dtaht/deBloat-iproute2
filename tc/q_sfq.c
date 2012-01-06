@@ -26,49 +26,67 @@
 static void explain(void)
 {
 	fprintf(stderr, "Usage: ... sfq [ limit NUMBER ] [ perturb SECS ] [ quantum BYTES ]\n");
-	fprintf(stderr, "               [ divisor NUMBER ]\n");
+	fprintf(stderr, "               [ divisor NUMBER ] [ flows NUMBER ]\n");
 }
 
 static int sfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nlmsghdr *n)
 {
 	int ok=0;
-	struct tc_sfq_qopt opt;
+	struct tc_sfq_ext_qopt opt;
 
 	memset(&opt, 0, sizeof(opt));
 
 	while (argc > 0) {
 		if (strcmp(*argv, "quantum") == 0) {
 			NEXT_ARG();
-			if (get_size(&opt.quantum, *argv)) {
+			if (get_size(&opt.qopt.quantum, *argv)) {
 				fprintf(stderr, "Illegal \"limit\"\n");
 				return -1;
 			}
 			ok++;
 		} else if (strcmp(*argv, "perturb") == 0) {
 			NEXT_ARG();
-			if (get_integer(&opt.perturb_period, *argv, 0)) {
+			if (get_integer(&opt.qopt.perturb_period, *argv, 0)) {
 				fprintf(stderr, "Illegal \"perturb\"\n");
 				return -1;
 			}
 			ok++;
 		} else if (strcmp(*argv, "limit") == 0) {
 			NEXT_ARG();
-			if (get_u32(&opt.limit, *argv, 0)) {
+			if (get_u32(&opt.qopt.limit, *argv, 0)) {
 				fprintf(stderr, "Illegal \"limit\"\n");
 				return -1;
 			}
-			if (opt.limit < 2) {
+			if (opt.qopt.limit < 2) {
 				fprintf(stderr, "Illegal \"limit\", must be > 1\n");
 				return -1;
 			}
 			ok++;
 		} else if (strcmp(*argv, "divisor") == 0) {
 			NEXT_ARG();
-			if (get_u32(&opt.divisor, *argv, 0)) {
+			if (get_u32(&opt.qopt.divisor, *argv, 0)) {
 				fprintf(stderr, "Illegal \"divisor\"\n");
 				return -1;
 			}
 			ok++;
+		} else if (strcmp(*argv, "flows") == 0) {
+			NEXT_ARG();
+			if (get_u32(&opt.qopt.flows, *argv, 0)) {
+			fprintf(stderr, "Illegal \"flows\"\n");
+				return -1;
+			}
+			ok++;
+		} else if (strcmp(*argv, "depth") == 0) {
+			NEXT_ARG();
+			if (get_u32(&opt.depth, *argv, 0)) {
+			fprintf(stderr, "Illegal \"flows\"\n");
+			return -1;
+			}
+			ok++;
+		} else if (strcmp(*argv, "headdrop") == 0) {
+			opt.headdrop = 1;
+			ok++;
+
 		} else if (strcmp(*argv, "help") == 0) {
 			explain();
 			return -1;
@@ -88,6 +106,7 @@ static int sfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 static int sfq_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 {
 	struct tc_sfq_qopt *qopt;
+	struct tc_sfq_ext_qopt *qopt_ext = NULL;
 	SPRINT_BUF(b1);
 
 	if (opt == NULL)
@@ -95,9 +114,15 @@ static int sfq_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 
 	if (RTA_PAYLOAD(opt)  < sizeof(*qopt))
 		return -1;
+	if (RTA_PAYLOAD(opt) >= sizeof(*qopt_ext))
+		qopt_ext = RTA_DATA(opt);
 	qopt = RTA_DATA(opt);
 	fprintf(f, "limit %up ", qopt->limit);
 	fprintf(f, "quantum %s ", sprint_size(qopt->quantum, b1));
+	if (qopt_ext && qopt_ext->depth)
+		fprintf(f, "depth %u ", qopt_ext->depth);
+	if (qopt_ext && qopt_ext->headdrop)
+		fprintf(f, "headdrop ");
 	if (show_details) {
 		fprintf(f, "flows %u/%u ", qopt->flows, qopt->divisor);
 	}
