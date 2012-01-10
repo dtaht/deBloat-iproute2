@@ -162,12 +162,6 @@ struct tc_sfq_qopt {
 	unsigned	flows;		/* Maximal number of flows  */
 };
 
-struct tc_sfq_ext_qopt {
-	struct tc_sfq_qopt qopt;
-	unsigned int depth;
-	unsigned int headdrop;
-};
-
 struct tc_sfq_xstats {
 	__s32		allot;
 };
